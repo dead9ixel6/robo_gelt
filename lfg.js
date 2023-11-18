@@ -1,13 +1,13 @@
 require('dotenv').config();
 const axios = require('axios');
 const { MongoClient } = require('mongodb');
-const { calculateRSI, calculateFibonacciLevels } = require('./indicators');
-const { generateTradingSignal } = require('./magic')
+const { calculateRSI, calculateFibonacciLevels, calculateMovingAverage } = require('./indicators');
+const { generateTradingSignal , detectCrossOver } = require('./magic')
 const uri = "mongodb://127.0.0.1:27017";
 const client = new MongoClient(uri);
 
-const shortTermMA = 10; // For testing
-const longTermMA = 20; // For testing
+const shortTermMA = 50; // For testing
+const longTermMA = 200; // For testing
 
 async function main() {
     try {
@@ -15,7 +15,7 @@ async function main() {
         console.log("Connected successfully to MongoDB");
 
         setInterval(async () => {
-            await fetchBinanceData('1h', 'rsi');
+            await fetchBinanceData('4h', 'rsi');
         }, 10000);
 
         setInterval(async () => {
@@ -27,29 +27,38 @@ async function main() {
     }
 }
 
+
 const fetchBinanceAPI = async (interval) => {
     try {
+        // Determine the limit based on the interval
+        const limit = interval === '1d' ? shortTermMA : 14; // Fetch 14 periods for RSI calculation
+
         const response = await axios.get('https://fapi.binance.com/fapi/v1/klines', {
             params: {
                 symbol: 'BTCUSDT',
                 interval: interval,
-                limit: interval === '1d' ? shortTermMA : 1
+                limit: limit
             }
         });
 
+        // Parse the data based on the interval
         if (interval === '1d') {
+            // For daily intervals (used for moving averages)
             const prices = response.data.map(kline => parseFloat(kline[4]));
             console.log(`Fetched daily prices for moving averages: ${prices}`);
             return prices;
         } else {
-            console.log(`Fetched latest price: ${parseFloat(response.data[0][4])}`);
-            return { latestPrice: parseFloat(response.data[0][4]), interval };
+            // For non-daily intervals (used for RSI calculation)
+            const closingPrices = response.data.map(kline => parseFloat(kline[4]));
+            console.log(`Fetched closing prices for RSI calculation: ${closingPrices}`);
+            return closingPrices; // Returning an array of closing prices
         }
     } catch (error) {
         console.error(`Error fetching Binance data: ${error.message}`);
         return null;
     }
 };
+
 
 const fetchBinanceDataForMA = async (interval, indicator) => {
     const prices = await fetchBinanceAPI(interval);
@@ -66,7 +75,9 @@ const fetchBinanceDataForMA = async (interval, indicator) => {
 
     console.log(`Short-term MA (${shortTermMA} days): ${shortTermMAValues[0]}`);
     console.log(`Long-term MA (${longTermMA} days): ${longTermMAValues[0]}`);
+    detectCrossOver(shortTermMAValues, longTermMAValues);
 };
+
 
 const fetchBinanceData = async (interval, indicator) => {
     const apiData = await fetchBinanceAPI(interval);
@@ -77,8 +88,8 @@ const fetchBinanceData = async (interval, indicator) => {
     }
 
     if (indicator === 'rsi') {
-        const rsiData = await getDataFromMongo(indicator);
-        const rsi = calculateRSI(rsiData);
+        const rsiData = apiData; // Directly using the latest price for RSI calculation
+        const rsi = calculateRSI(rsiData); // Adjust calculateRSI to work with direct price data
         console.log(`RSI (${interval}): ${rsi}`);
         console.log(generateTradingSignal(rsi))
     } else if (indicator === 'fibonacci') {
@@ -99,12 +110,6 @@ const fetchBinanceData = async (interval, indicator) => {
     }
 };
 
-const storePrice = async (price, indicator) => {
-    const db = client.db("robo_gelt");
-    const collection = db.collection(indicator);
-    await collection.insertOne({ date: new Date(), price });
-    console.log(`Stored price for ${indicator}: ${price}`);
-};
 
 const storePrices = async (prices, indicator) => {
     const db = client.db("robo_gelt");
@@ -118,29 +123,12 @@ const storePrices = async (prices, indicator) => {
 const getDataFromMongo = async (indicator) => {
     const db = client.db("robo_gelt");
     const collection = db.collection(indicator);
-    const limit = indicator === 'moving-averages' ? shortTermMA : 200;
+    const limit = longTermMA;
     const data = await collection.find({}).sort({ _id: -1 }).limit(limit).toArray();
     return data.map(d => d.price);
 };
 
-const calculateMovingAverage = (data, period) => {
-    let maValues = [];
 
-    for (let i = 0; i < data.length; i++) {
-        if (i >= period - 1) {
-            let sum = 0;
-            for (let j = 0; j < period; j++) {
-                sum += data[i - j];
-            }
-            maValues.push(sum / period);
-        } else {
-            maValues.push(null); // Not enough data to calculate moving average
-        }
-    }
-
-    console.log(`Calculated moving averages for period ${period}:`, maValues);
-    return maValues;
-};
 
 
 main().catch(console.error);

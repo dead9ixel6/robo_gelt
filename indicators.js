@@ -33,7 +33,30 @@ function calculateRSI(data) {
     };
 }
 
-module.exports = { calculateRSI, calculateFibonacciLevels };
+const calculateMovingAverage = (data, period) => {
+  let maValues = [];
 
-  module.exports = { calculateRSI, calculateFibonacciLevels };
+  // Check if there are enough data points
+  if (data.length < period) {
+      console.log("Not enough data to calculate moving averages");
+      return maValues.fill(null, 0, period); // Fill the array with nulls
+  }
+
+  // Loop through the data
+  for (let i = 0; i <= data.length - period; i++) {
+      let sum = 0;
+      // Sum the values for the specified period
+      for (let j = i; j < i + period; j++) {
+          sum += data[j];
+      }
+      const average = sum / period;
+      maValues.push(average);
+  }
+
+  console.log(`Calculated moving averages for period ${period}:`, maValues);
+  return maValues;
+};
+
+
+  module.exports = { calculateRSI, calculateFibonacciLevels, calculateMovingAverage };
   

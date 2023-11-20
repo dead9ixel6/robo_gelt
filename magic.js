@@ -15,4 +15,34 @@ const detectCrossOver = (shortTermMAValues, longTermMAValues) => {
     console.log(`Death Cross Detected: ${deathCross}`);
 };
 
-module.exports = {generateTradingSignal , detectCrossOver}
+function generateFibonacciSignal(currentPrice, fibonacciLevels) {
+    // Define a threshold (e.g., 5%) for triggering a signal
+    const signalThreshold = 5;
+
+    // Loop through the Fibonacci levels in the object
+    for (const levelName in fibonacciLevels) {
+        if (fibonacciLevels.hasOwnProperty(levelName)) {
+            const fibonacciLevel = fibonacciLevels[levelName];
+
+            // Calculate the percentage difference between the current price and the Fibonacci level
+            const percentageDifference = Math.abs((currentPrice - fibonacciLevel) / fibonacciLevel) * 100;
+                console.log(`percentage difference fibonnaci ${percentageDifference}`)
+            if (percentageDifference >= signalThreshold) {
+                // If the percentage difference is greater than or equal to the threshold, trigger a signal
+                if (currentPrice > fibonacciLevel) {
+                    return `Hit Resistance at ${levelName}`;
+                } else {
+                    return `Hit Support at ${levelName}`;
+                }
+            }
+            return 'Fibbonacci don mare .'
+        }
+    }
+
+    // If no signal was triggered for any level, return 'No Signal'
+    return 'No Signal';
+}
+
+
+
+module.exports = {generateTradingSignal , detectCrossOver, generateFibonacciSignal}

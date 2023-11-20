@@ -53,7 +53,6 @@ const calculateMovingAverage = (data, period) => {
       maValues.push(average);
   }
 
-  console.log(`Calculated moving averages for period ${period}:`, maValues);
   return maValues;
 };
 

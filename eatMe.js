@@ -10,8 +10,14 @@ async function main() {
         await client.connect();
         console.log("Connected successfully to MongoDB");
 
+        // Drop the existing "moving-averages" collection
+        await dropCollection("moving-averages");
+
+        // Number of days to subtract from the current date
+        const daysToSubtract = 200;
+
         // Fetch and store historical data
-        await fetchAndStoreHistoricalData();
+        await fetchAndStoreHistoricalData(daysToSubtract);
     } catch (e) {
         console.error(e);
     } finally {
@@ -19,19 +25,19 @@ async function main() {
     }
 }
 
-async function fetchAndStoreHistoricalData() {
-    let startTime = new Date('2021-01-01').getTime();
+async function fetchAndStoreHistoricalData(daysToSubtract) {
     const endTime = new Date().getTime(); // Use current date as end time
     const oneDayInMs = 24 * 60 * 60 * 1000;
+    const startTime = endTime - (daysToSubtract * oneDayInMs);
 
-    while (startTime < endTime) {
-        const historicalData = await fetchBinanceAPI('1d', startTime, Math.min(startTime + oneDayInMs * 365, endTime));
-        if (historicalData) {
-            await storeHistoricalData(historicalData, 'moving-averages');
-        }
-        startTime += oneDayInMs * 365;
+    const historicalData = await fetchBinanceAPI('1d', startTime, endTime);
+    if (historicalData) {
+        const dataInserted = await storeHistoricalData(historicalData, 'moving-averages');
+        return dataInserted;
     }
+    return false; // No data inserted
 }
+
 
 async function fetchBinanceAPI(interval, startTime, endTime) {
     try {
@@ -48,16 +54,26 @@ async function fetchBinanceAPI(interval, startTime, endTime) {
     } catch (error) {
         console.error(`Error fetching Binance data: ${error.message}`);
         return null;
-    }
+    } 
 }
 
 async function storeHistoricalData(data, indicator) {
     const db = client.db("robo_gelt");
+    let i = 0;
     const collection = db.collection(indicator);
     for (let item of data) {
+        i++
         await collection.insertOne({ date: item.date, price: item.price });
         console.log(`Stored price for ${indicator}: ${item.price} on ${item.date}`);
     }
+    console.log(i)
+    return true; // Data inserted successfully
+}
+
+async function dropCollection(collectionName) {
+    const db = client.db("robo_gelt");
+    await db.dropCollection(collectionName);
+    console.log(`Dropped collection: ${collectionName}`);
 }
 
 main().catch(console.error);

@@ -26,7 +26,7 @@ function generateFibonacciSignal(currentPrice, fibonacciLevels) {
 
             // Calculate the percentage difference between the current price and the Fibonacci level
             const percentageDifference = Math.abs((currentPrice - fibonacciLevel) / fibonacciLevel) * 100;
-                console.log(`percentage difference fibonnaci ${percentageDifference}`)
+                console.log(`Percentage difference fibonnaci ${percentageDifference}`)
             if (percentageDifference >= signalThreshold) {
                 // If the percentage difference is greater than or equal to the threshold, trigger a signal
                 if (currentPrice > fibonacciLevel) {
